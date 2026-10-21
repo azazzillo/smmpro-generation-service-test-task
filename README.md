@@ -1,0 +1,1 @@
+# smmpro-generation-service-test-task
