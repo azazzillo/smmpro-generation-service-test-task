@@ -31,3 +31,19 @@ async def create_or_topup(body: DevUserIn):
                 {"u": body.id, "d": body.balance},
             )
     return {"user_id": body.id, "granted": body.balance}
+
+
+@router.get("/invariant")
+async def invariant():
+    async with SessionLocal() as s:
+        rows = (
+            await s.execute(
+                text("""
+                    SELECT u.id, u.balance, COALESCE(SUM(l.delta), 0) AS ledger_sum
+                    FROM users u LEFT JOIN ledger l ON l.user_id = u.id
+                    GROUP BY u.id, u.balance
+                    HAVING u.balance <> COALESCE(SUM(l.delta), 0)
+                """)
+            )
+        ).mappings().all()
+    return {"ok": not rows, "violations": [dict(r) for r in rows]}

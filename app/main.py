@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api import dev, generate, payments, webhooks
+from app.api import dev, generate, payments, webhooks, reads
 from app.services import watchdog
 
 
@@ -19,6 +19,7 @@ app.include_router(generate.router)
 app.include_router(webhooks.router)
 app.include_router(payments.router)
 app.include_router(dev.router)
+app.include_router(reads.router)
 
 
 @app.get("/health")

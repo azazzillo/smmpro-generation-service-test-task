@@ -1,3 +1,17 @@
+x-app-env: &app-env
+  DB_URL: postgresql+asyncpg://app:app@db:5432/app
+  WEBHOOK_SECRET: dev-secret
+  PROVIDER_TIMEOUT: ${PROVIDER_TIMEOUT:-60}
+  WATCHDOG_INTERVAL: "1"
+  PROVIDER_URLS: '{"alpha":"http://provider-alpha:9001","beta":"http://provider-beta:9002"}'
+  SELF_URL: http://app:8000
+
+x-provider-env: &provider-env
+  WEBHOOK_SECRET: dev-secret
+  SELF_URL: http://app:8000
+  DELAY_MIN: ${DELAY_MIN:-2}
+  DELAY_MAX: ${DELAY_MAX:-20}
+
 services:
   db:
     image: postgres:16
@@ -9,5 +23,38 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U app"]
       interval: 2s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    environment: *app-env
+    depends_on:
+      db: { condition: service_healthy }
+
+  provider-alpha:
+    build: .
+    command: ["uvicorn", "providers.main:app", "--host", "0.0.0.0", "--port", "9001"]
+    environment: { <<: *provider-env, PROVIDER_NAME: alpha }
+    ports: ["9001:9001"]
+
+  provider-beta:
+    build: .
+    command: ["uvicorn", "providers.main:app", "--host", "0.0.0.0", "--port", "9002"]
+    environment: { <<: *provider-env, PROVIDER_NAME: beta }
+    ports: ["9002:9002"]
+
+  app:
+    build: .
+    environment: *app-env
+    ports: ["8000:8000"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      provider-alpha: { condition: service_started }
+      provider-beta: { condition: service_started }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health')"]
+      interval: 3s
       timeout: 3s
       retries: 20
