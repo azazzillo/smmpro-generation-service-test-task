@@ -48,7 +48,7 @@ services:
   app:
     build: .
     environment: *app-env
-    ports: ["8000:8000"]
+    ports: ["8001:8000"]
     depends_on:
       migrate: { condition: service_completed_successfully }
       provider-alpha: { condition: service_started }
