@@ -1,10 +1,23 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
-from app.api import dev, generate, webhooks
+from app.api import dev, generate, payments, webhooks
+from app.services import watchdog
 
-app = FastAPI(title="generation-service")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(watchdog.run())   
+    yield
+    task.cancel()
+
+
+app = FastAPI(title="generation-service", lifespan=lifespan)
 app.include_router(generate.router)
 app.include_router(webhooks.router)
+app.include_router(payments.router)
 app.include_router(dev.router)
 
 
